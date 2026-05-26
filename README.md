@@ -151,6 +151,19 @@ Operaciones pendientes que se acumulan cuando no hay conectividad:
 
 Para tolerar reinicios, cada estacion persiste su estado local en archivos simples (bicicletas, viajes activos, operaciones pendientes).
 
+## Sincronizacion de operaciones pendientes
+
+Cuando una estacion recupera conectividad, envia al lider de zona un mensaje `SyncPending` con las operaciones que habia registrado localmente mientras estaba desconectada. Cada operacion pendiente incluye un identificador estable (`trip_id` y, cuando corresponde, `bike_id`) para que el lider pueda procesarla de forma idempotente: si recibe dos veces la misma operacion por un reintento, no la aplica dos veces.
+
+El lider procesa las operaciones usando el `trip_id` como clave principal del viaje:
+
+- si recibe un retiro pendiente y el viaje no existe en la vista regional, lo crea como viaje activo;
+- si recibe una devolucion pendiente de un viaje existente, cierra el viaje y actualiza la estacion destino;
+- si recibe una devolucion antes de conocer el retiro, la deja temporalmente en una cola de pendientes hasta recibir el inicio del viaje o hasta poder resolverla con la estacion que la informa;
+- si recibe informacion repetida o ya aplicada, responde como sincronizada sin modificar nuevamente el estado.
+
+La estacion local no espera a esta sincronizacion para actualizar su inventario fisico. Por ejemplo, si entrego una bicicleta mientras estaba desconectada, esa bicicleta deja de estar disponible localmente en el momento del retiro. La sincronizacion solo hace converger la vista regional y permite cerrar viajes/cobros que involucren a mas de una estacion.
+
 ## Herramientas de concurrencia distribuida
 
 Usamos dos.
